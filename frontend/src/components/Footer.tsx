@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import logoImg from '../assets/logo.png';
+import { BookOpen } from 'lucide-react';
 
 const FacebookIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -28,7 +28,9 @@ const Footer: React.FC = () => {
           {/* Brand + Description + Social */}
           <div>
             <Link to="/" className="flex items-center gap-2.5 group">
-              <img src={logoImg} alt="NovelNest" className="h-10 w-auto object-contain" />
+              <div className="w-9 h-9 bg-gradient-to-br from-brand-600 to-purple-600 rounded-xl flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-all shadow-md shadow-brand-500/20">
+                <BookOpen className="w-4.5 h-4.5 text-white" />
+              </div>
               <span className="text-2xl font-bold text-app-text-strong group-hover:text-rose-400 transition-colors">NovelNest</span>
             </Link>
             <p className="text-app-text-muted text-sm leading-relaxed mt-4 mb-6">
