@@ -1,0 +1,121 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8
+    container_name: novelnest-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_USER: story_user
+      MYSQL_PASSWORD: story_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  discovery-server:
+    build:
+      context: ./discovery-server
+    container_name: novelnest-discovery
+    ports:
+      - "8761:8761"
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8761/eureka/apps && echo ok || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+    container_name: novelnest-api-gateway
+    ports:
+      - "8080:8080"
+    restart: always
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+
+  auth-service:
+    build:
+      context: ./auth-service
+    container_name: novelnest-auth-service
+    ports:
+      - "8081:8081"
+    restart: always
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/auth_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=story_user
+      - SPRING_DATASOURCE_PASSWORD=story_password
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+
+  story-service:
+    build:
+      context: ./story-service
+    container_name: novelnest-story-service
+    ports:
+      - "8082:8082"
+    restart: always
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/story_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=story_user
+      - SPRING_DATASOURCE_PASSWORD=story_password
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-demo}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-demo}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-demo}
+      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY:-}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+
+  media-service:
+    build:
+      context: ./media-service
+    container_name: novelnest-media-service
+    ports:
+      - "8083:8083"
+    restart: always
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+    volumes:
+      - ./uploads:/uploads
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile.prod
+      args:
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:8080}
+        - VITE_WS_URL=${VITE_WS_URL:-ws://localhost:8080}
+    container_name: novelnest-frontend
+    ports:
+      - "80:80"
+    restart: always
+    depends_on:
+      - api-gateway
+
+volumes:
+  mysql_data:
+    driver: local
