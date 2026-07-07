@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, List, ArrowUp, Type, Sparkles, Sun, Moon, BookOpen, Settings, Headphones, Info, ArrowDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, List, ArrowUp, Type, Sparkles, BookOpen, Settings, Headphones, Info, ArrowDown } from 'lucide-react';
 import { getChapterDetail, reportChapter } from '../api/storyApi';
 import { ChapterDetail } from '../types/chapter';
 import Loading from '../components/Loading';

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { AlertCircle } from 'lucide-react';
 
 interface ReportChapterModalProps {
   isOpen: boolean;

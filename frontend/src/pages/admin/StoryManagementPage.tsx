@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Plus, Edit, Trash2, List, BookOpen, Eye, EyeOff } from 'lucide-react';
+import { Plus, Edit, Trash2, List, BookOpen } from 'lucide-react';
 import { getAdminStories, deleteStory, toggleStoryDisplay } from '../../api/adminStoryApi';
 import { StorySummary } from '../../types/story';
 import { PageResponse } from '../../types/api';

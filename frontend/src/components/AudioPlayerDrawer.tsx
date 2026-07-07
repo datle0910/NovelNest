@@ -33,7 +33,7 @@ const AudioPlayerDrawer: React.FC<AudioPlayerDrawerProps> = ({
 }) => {
   const [autoNext, setAutoNext] = useState(true);
   const [sleepTimer, setSleepTimer] = useState<number>(0);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
     voices,
