@@ -29,7 +29,7 @@ import java.util.List;
 
 @Component
 @Slf4j
-public class LacaTruyenCrawler implements NovelSourceCrawler {
+@RequiredArgsConstructor
 public class LacaTruyenCrawler implements NovelSourceCrawler {
 
     private final RobotsTxtService robotsTxtService;
