@@ -28,7 +28,20 @@ const AdminLayout: React.FC = () => {
         wsRef.current.close();
       }
 
-      const WS_BASE = import.meta.env.VITE_WS_URL || 'ws://localhost:8080';
+      const getWsBase = () => {
+        if (import.meta.env.VITE_WS_URL) {
+          return import.meta.env.VITE_WS_URL;
+        }
+        if (typeof window !== 'undefined') {
+          if (window.location.hostname === 'localhost' && window.location.port === '5173') {
+            return 'ws://localhost:8080';
+          }
+          const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          return `${protocol}//${window.location.host}`;
+        }
+        return 'ws://localhost:8080';
+      };
+      const WS_BASE = getWsBase();
       const ws = new WebSocket(`${WS_BASE}/ws/admin-reports?token=${accessToken}`);
       wsRef.current = ws;
 

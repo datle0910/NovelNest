@@ -1,7 +1,17 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
-const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const getApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  // Local React development server fallback
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost' && window.location.port === '5173') {
+    return 'http://localhost:8080';
+  }
+  return typeof window !== 'undefined' ? window.location.origin : '';
+};
+const apiBaseUrl = getApiBaseUrl();
 
 const axiosClient = axios.create({
   baseURL: apiBaseUrl,
