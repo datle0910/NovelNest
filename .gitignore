@@ -44,3 +44,9 @@ Thumbs.db
 # Local uploads / media
 **/uploads/*
 !**/uploads/.gitkeep
+
+# Agent metadata
+.agents/
+skills-lock.json
+**/skills-lock.json
+**/.agents/

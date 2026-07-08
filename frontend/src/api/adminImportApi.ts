@@ -9,6 +9,7 @@ export interface CrawlRequest {
     maxStories?: number;
     maxChaptersPerStory?: number;
     dryRun?: boolean;
+    targetStoryId?: number | '';
 }
 
 export const adminImportApi = {

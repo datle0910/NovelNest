@@ -29,4 +29,7 @@ public interface ChapterRepository extends JpaRepository<Chapter, Long> {
 
     @Query("SELECT MIN(c.chapterNumber) FROM Chapter c WHERE c.story.id = :storyId AND c.chapterNumber > :currentNumber")
     Optional<Integer> findNextChapterNumber(@Param("storyId") Long storyId, @Param("currentNumber") Integer currentNumber);
+
+    @Query("SELECT c.chapterNumber FROM Chapter c WHERE c.story.id = :storyId")
+    List<Integer> findChapterNumbersByStoryId(@Param("storyId") Long storyId);
 }

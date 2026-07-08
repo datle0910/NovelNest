@@ -188,8 +188,20 @@ const ImportDataPage: React.FC = () => {
                                     className="w-full bg-surface-base/50 border border-white/10 rounded-xl px-3 py-2.5 text-xs font-bold text-text-secondary focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500/50" 
                                 />
                             </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-text-muted mb-2 uppercase tracking-widest">ID Truyện (Để Cập nhật)</label>
+                                <input 
+                                    type="number" 
+                                    name="targetStoryId" 
+                                    value={request.targetStoryId || ''} 
+                                    onChange={handleChange} 
+                                    placeholder="Để trống nếu tạo truyện mới" 
+                                    className="w-full bg-surface-base/50 border border-white/10 rounded-xl px-3 py-2.5 text-xs font-bold text-text-secondary focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500/50 placeholder:text-text-muted/50" 
+                                />
+                            </div>
                             
-                            <div className="pt-5">
+                            <div className="sm:col-span-2">
                                 <label className="flex items-center gap-2 p-2 bg-surface-base/50 border border-white/10 rounded-xl cursor-pointer hover:bg-surface-base transition-colors">
                                     <input 
                                         name="dryRun" 

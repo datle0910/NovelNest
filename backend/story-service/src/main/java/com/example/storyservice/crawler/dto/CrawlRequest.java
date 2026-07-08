@@ -23,4 +23,6 @@ public class CrawlRequest {
     
     @Builder.Default
     private Boolean dryRun = true;
+    
+    private Long targetStoryId;
 }

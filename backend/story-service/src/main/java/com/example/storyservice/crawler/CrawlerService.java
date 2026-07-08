@@ -88,6 +88,16 @@ public class CrawlerService {
                     logToUpdate.setTotalFound(1);
                     progressMap.get(logId).setMessage("Đang quét danh sách chương...");
                     
+                    Story existingStory = null;
+                    if (request.getTargetStoryId() != null) {
+                        existingStory = storyRepository.findById(request.getTargetStoryId()).orElse(null);
+                    }
+                    if (existingStory == null) {
+                        existingStory = storyRepository.findBySlug(dto.getSlug()).orElse(null);
+                    }
+                    
+                    List<Integer> existingChapterNumbers = existingStory != null ? chapterRepository.findChapterNumbersByStoryId(existingStory.getId()) : new ArrayList<>();
+                    
                     if (request.getMode() != ImportMode.METADATA_ONLY) {
                         int limit = request.getMaxChaptersPerStory();
                         if (limit == 0) limit = Integer.MAX_VALUE;
@@ -96,14 +106,25 @@ public class CrawlerService {
                             if (p != null) {
                                 p.setCurrentChapter(current);
                                 p.setTotalChapters(total);
-                                p.setMessage(String.format("Đang tải %d / %d chương...", current, total));
+                                p.setMessage(String.format("Đang duyệt danh sách %d / %d chương...", current, total));
                             }
                         });
                         
-                        int chaptersToFetch = (limit <= 0) ? chapterList.size() : Math.min(chapterList.size(), limit);
+                        List<CrawledChapterDto> newChapters = new ArrayList<>();
+                        for (CrawledChapterDto chapDto : chapterList) {
+                            if (!existingChapterNumbers.contains(chapDto.getChapterNumber())) {
+                                newChapters.add(chapDto);
+                            }
+                        }
+                        
+                        int chaptersToFetch = (limit <= 0) ? newChapters.size() : Math.min(newChapters.size(), limit);
                         
                         for (int i = 0; i < chaptersToFetch; i++) {
-                            CrawledChapterDto chapDto = chapterList.get(i);
+                            CrawledChapterDto chapDto = newChapters.get(i);
+                            com.example.storyservice.crawler.dto.CrawlProgress p = progressMap.get(logId);
+                            if (p != null) {
+                                p.setMessage(String.format("Đang tải nội dung chương mới %d / %d...", i + 1, chaptersToFetch));
+                            }
                             if (request.getMode() == ImportMode.FULL_CONTENT_IF_ALLOWED && sourceConfig.getContentImportAllowed()) {
                                 if (chapDto.getContent() == null || chapDto.getContent().isEmpty()) {
                                     Thread.sleep(1500);
@@ -123,22 +144,21 @@ public class CrawlerService {
 
                     progressMap.get(logId).setMessage("Đang lưu truyện vào cơ sở dữ liệu...");
                     if (!request.getDryRun()) {
-                        if (dto.getCoverImage() != null && !dto.getCoverImage().isEmpty()) {
+                        if (existingStory == null && dto.getCoverImage() != null && !dto.getCoverImage().isEmpty()) {
                             progressMap.get(logId).setMessage("Đang tải ảnh bìa lên Cloudinary...");
                             String secureUrl = imageService.uploadImageFromUrl(dto.getCoverImage(), "novelnest/covers");
                             dto.setCoverImage(secureUrl);
                         }
-                        boolean success = saveStoryAndChapters(dto);
-                        if (success) {
-                            logToUpdate.setTotalImported(1);
-                            logToUpdate.setMessage("Imported story: " + dto.getTitle());
+                        int newChapCount = saveStoryAndChapters(dto, existingStory);
+                        logToUpdate.setTotalImported(1);
+                        if (existingStory != null) {
+                            logToUpdate.setMessage("Cập nhật truyện: " + dto.getTitle() + " - Thêm " + newChapCount + " chương mới.");
                         } else {
-                            logToUpdate.setTotalSkipped(1);
-                            logToUpdate.setMessage("Skipped: Story already exists.");
+                            logToUpdate.setMessage("Import truyện mới: " + dto.getTitle() + " với " + newChapCount + " chương.");
                         }
                     } else {
                         logToUpdate.setTotalImported(1);
-                        logToUpdate.setMessage("Dry run: " + dto.getTitle());
+                        logToUpdate.setMessage("Dry run: " + dto.getTitle() + " (" + dto.getChapters().size() + " chương mới)");
                     }
                     logToUpdate.setStatus("COMPLETED");
                     logToUpdate.setFinishedAt(LocalDateTime.now());
@@ -181,38 +201,45 @@ public class CrawlerService {
     }
 
     @Transactional
-    protected boolean saveStoryAndChapters(CrawledStoryDto dto) {
-        if (storyRepository.findBySlug(dto.getSlug()).isPresent()) {
-            return false; // Skip if exists
+    protected int saveStoryAndChapters(CrawledStoryDto dto, Story existingStory) {
+        Story story;
+        if (existingStory != null) {
+            story = existingStory;
+            story.setUpdatedAt(LocalDateTime.now());
+            if (dto.getStatus() != null) {
+                story.setStatus(dto.getStatus());
+            }
+            story = storyRepository.save(story);
+        } else {
+            Author author = authorRepository.findBySlug(SlugUtils.toSlug(dto.getAuthorName()))
+                    .orElseGet(() -> authorRepository.save(Author.builder().name(dto.getAuthorName()).slug(SlugUtils.toSlug(dto.getAuthorName())).build()));
+
+            Set<Category> categories = new HashSet<>();
+            for (String catName : dto.getCategories()) {
+                Category cat = categoryRepository.findBySlug(SlugUtils.toSlug(catName))
+                        .orElseGet(() -> categoryRepository.save(Category.builder().name(catName).slug(SlugUtils.toSlug(catName)).build()));
+                categories.add(cat);
+            }
+
+            story = Story.builder()
+                    .title(Normalizer.normalize(dto.getTitle(), Normalizer.Form.NFC))
+                    .slug(dto.getSlug())
+                    .description(Normalizer.normalize(dto.getDescription(), Normalizer.Form.NFC))
+                    .coverImage(dto.getCoverImage())
+                    .author(author)
+                    .status(dto.getStatus())
+                    .categories(categories)
+                    .sourceName(dto.getSourceName())
+                    .sourceUrl(dto.getSourceUrl())
+                    .licenseName(dto.getLicenseName())
+                    .attribution(dto.getAttribution())
+                    .imported(true)
+                    .build();
+
+            story = storyRepository.save(story);
         }
 
-        Author author = authorRepository.findBySlug(SlugUtils.toSlug(dto.getAuthorName()))
-                .orElseGet(() -> authorRepository.save(Author.builder().name(dto.getAuthorName()).slug(SlugUtils.toSlug(dto.getAuthorName())).build()));
-
-        Set<Category> categories = new HashSet<>();
-        for (String catName : dto.getCategories()) {
-            Category cat = categoryRepository.findBySlug(SlugUtils.toSlug(catName))
-                    .orElseGet(() -> categoryRepository.save(Category.builder().name(catName).slug(SlugUtils.toSlug(catName)).build()));
-            categories.add(cat);
-        }
-
-        Story story = Story.builder()
-                .title(Normalizer.normalize(dto.getTitle(), Normalizer.Form.NFC))
-                .slug(dto.getSlug())
-                .description(Normalizer.normalize(dto.getDescription(), Normalizer.Form.NFC))
-                .coverImage(dto.getCoverImage())
-                .author(author)
-                .status(dto.getStatus())
-                .categories(categories)
-                .sourceName(dto.getSourceName())
-                .sourceUrl(dto.getSourceUrl())
-                .licenseName(dto.getLicenseName())
-                .attribution(dto.getAttribution())
-                .imported(true)
-                .build();
-
-        story = storyRepository.save(story);
-
+        int newChaptersCount = 0;
         for (CrawledChapterDto cDto : dto.getChapters()) {
             String rawContent = cDto.getContent() != null ? cDto.getContent() : "<p>Nội dung trống</p>";
             String cleanedContent = cleanChapterContent(Normalizer.normalize(rawContent, Normalizer.Form.NFC));
@@ -226,9 +253,10 @@ public class CrawlerService {
                     .imported(true)
                     .build();
             chapterRepository.save(chapter);
+            newChaptersCount++;
         }
 
-        return true;
+        return newChaptersCount;
     }
 
     private String cleanChapterContent(String html) {
