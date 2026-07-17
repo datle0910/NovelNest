@@ -168,16 +168,18 @@ public class LacaTruyenCrawler implements NovelSourceCrawler {
             
             // Fetch total chapters from API for progress reporting
             int totalChapters = 0;
+            JsonNode allChaptersList = null;
             try {
                 JsonNode storyNode = pageProps.path("story");
                 int storyId = storyNode.path("id").asInt(0);
                 if (storyId > 0) {
-                    Document apiDoc = Jsoup.connect(getBaseUrl() + "/api/stories/" + storyId + "/chapters?limit=1")
+                    Document apiDoc = Jsoup.connect(getBaseUrl() + "/api/stories/" + storyId + "/chapters?limit=10000")
                             .ignoreContentType(true)
                             .userAgent(USER_AGENT)
                             .get();
                     JsonNode apiResponse = objectMapper.readTree(apiDoc.body().text());
                     totalChapters = apiResponse.path("pagination").path("total").asInt(0);
+                    allChaptersList = apiResponse.path("list");
                 }
             } catch (Exception e) {
                 log.warn("Could not fetch total chapters for progress: {}", e.getMessage());
@@ -257,6 +259,20 @@ public class LacaTruyenCrawler implements NovelSourceCrawler {
                             JsonNode right = chapPageProps.path("chapterRight");
                             if (!right.isMissingNode() && !right.isNull() && !right.path("slug").asText("").isEmpty()) {
                                 nextSlug = right.path("slug").asText("");
+                            }
+                        }
+                    }
+
+                    if (title.isEmpty() || title.startsWith("Chương " + (count + 1))) {
+                        if (allChaptersList != null && allChaptersList.isArray()) {
+                            for (JsonNode chapNode : allChaptersList) {
+                                if (currentSlug.equals(chapNode.path("slug").asText())) {
+                                    String apiTitle = chapNode.path("title").asText("");
+                                    if (!apiTitle.isEmpty()) {
+                                        title = apiTitle;
+                                    }
+                                    break;
+                                }
                             }
                         }
                     }
