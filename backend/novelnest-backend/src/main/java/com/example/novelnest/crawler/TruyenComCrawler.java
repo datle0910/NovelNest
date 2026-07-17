@@ -134,7 +134,8 @@ public class TruyenComCrawler implements NovelSourceCrawler {
                 if (chaptersLimit > 0 && chapterNum > chaptersLimit) break;
                 
                 CrawledChapterDto dto = new CrawledChapterDto();
-                dto.setTitle(a.text());
+                String title = a.text().trim();
+                dto.setTitle(title.isEmpty() ? "Chương " + chapterNum : title);
                 dto.setSourceUrl(a.attr("abs:href"));
                 dto.setChapterNumber(chapterNum);
                 chapters.add(dto);

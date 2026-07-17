@@ -176,8 +176,12 @@ public class MetruyenchuCoCrawler implements NovelSourceCrawler {
                         .get();
                 String chapterHtml = doc.html();
                 
-                String title = doc.select("meta[property=og:title]").attr("content");
-                if (title.isEmpty()) title = "Chương " + (i + 1);
+                String title = doc.select("h2.text-xl, h2.font-bold, h2:contains(Chương), .chapter-title, h1").first() != null 
+                        ? doc.select("h2.text-xl, h2.font-bold, h2:contains(Chương), .chapter-title, h1").first().text().trim() : "";
+                if (title.isEmpty()) {
+                    title = doc.select("meta[property=og:title]").attr("content");
+                    if (title.isEmpty()) title = "Chương " + (i + 1);
+                }
                 
                 // Extract content
                 Element contentEl = doc.select("article").first();
