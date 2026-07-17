@@ -44,7 +44,7 @@ public class LacaTruyenCrawler implements NovelSourceCrawler {
 
     @Override
     public String getBaseUrl() {
-        return "https://lacatruyen.vip";
+        return "https://lacatruyen.buzz";
     }
 
     @Override
@@ -198,45 +198,71 @@ public class LacaTruyenCrawler implements NovelSourceCrawler {
 
             log.info("Starting sequential crawl for chapters from {}", storyUrl);
             
-            // Initialize Selenium Chrome for the crawling session
+            // Initialize Selenium Chrome for the crawling session if available
             WebDriver driver = createHeadlessChrome();
+            if (driver == null) {
+                log.info("SELENIUM_URL not set. Using Fast Mode (JSON parsing) for chapter crawling.");
+            }
+            
             try {
                 while (currentSlug != null && !currentSlug.isEmpty() && (chaptersLimit <= 0 || count < chaptersLimit)) {
                     String chapUrl = getBaseUrl() + "/chapter/" + currentSlug;
+                    String title = "";
+                    String contentHtml = "";
+                    String nextSlug = "";
                     
-                    driver.get(chapUrl);
-                    // Wait for the chapter content to be rendered by WASM
-                    WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
-                    wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector(".chapter-c")));
-                    // Extra wait for WASM decryption
-                    Thread.sleep(2000);
-                    
-                    String title;
-                    try {
-                        WebElement titleEl = driver.findElement(By.cssSelector(".chapter-title"));
-                        title = titleEl.getText().trim();
-                    } catch (Exception e) {
-                        title = "Chương " + (count + 1);
+                    if (driver != null) {
+                        driver.get(chapUrl);
+                        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+                        wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector(".chapter-c")));
+                        Thread.sleep(2000);
+                        
+                        try {
+                            WebElement titleEl = driver.findElement(By.cssSelector(".chapter-title"));
+                            title = titleEl.getText().trim();
+                        } catch (Exception e) {
+                            title = "Chương " + (count + 1);
+                        }
+                        
+                        WebElement contentEl = driver.findElement(By.cssSelector(".chapter-c"));
+                        contentHtml = contentEl.getAttribute("innerHTML");
+                        
+                        try {
+                            WebElement nextDataEl = driver.findElement(By.id("__NEXT_DATA__"));
+                            String nextDataJson = nextDataEl.getAttribute("innerHTML");
+                            JsonNode chapNextData = objectMapper.readTree(nextDataJson);
+                            JsonNode right = chapNextData.path("props").path("pageProps").path("chapterRight");
+                            if (!right.isMissingNode() && !right.isNull() && !right.path("slug").asText("").isEmpty()) {
+                                nextSlug = right.path("slug").asText("");
+                            }
+                        } catch (Exception e) {
+                            log.warn("Could not extract next chapter slug");
+                        }
+                    } else {
+                        // Fast Mode: Use Jsoup to extract NEXT_DATA
+                        Document chapDoc = Jsoup.connect(chapUrl).userAgent(USER_AGENT).get();
+                        JsonNode chapNextData = extractNextData(chapDoc);
+                        if (chapNextData != null) {
+                            JsonNode pageProps = chapNextData.path("props").path("pageProps");
+                            
+                            // Extract title from previewHtml if possible
+                            contentHtml = pageProps.path("previewHtml").asText("");
+                            if (contentHtml.startsWith("<p>Chương")) {
+                                int endTitle = contentHtml.indexOf("</p>");
+                                if (endTitle > 0) {
+                                    title = contentHtml.substring(3, endTitle);
+                                }
+                            }
+                            
+                            JsonNode right = pageProps.path("chapterRight");
+                            if (!right.isMissingNode() && !right.isNull() && !right.path("slug").asText("").isEmpty()) {
+                                nextSlug = right.path("slug").asText("");
+                            }
+                        }
                     }
+
                     if (title.isEmpty()) {
                         title = "Chương " + (count + 1);
-                    }
-                    
-                    WebElement contentEl = driver.findElement(By.cssSelector(".chapter-c"));
-                    String contentHtml = contentEl.getAttribute("innerHTML");
-                    
-                    // Also get the next chapter slug from NEXT_DATA if possible
-                    String nextSlug = "";
-                    try {
-                        WebElement nextDataEl = driver.findElement(By.id("__NEXT_DATA__"));
-                        String nextDataJson = nextDataEl.getAttribute("innerHTML");
-                        JsonNode chapNextData = objectMapper.readTree(nextDataJson);
-                        JsonNode right = chapNextData.path("props").path("pageProps").path("chapterRight");
-                        if (!right.isMissingNode() && !right.isNull() && !right.path("slug").asText("").isEmpty()) {
-                            nextSlug = right.path("slug").asText("");
-                        }
-                    } catch (Exception e) {
-                        log.warn("Could not extract next chapter slug");
                     }
 
                     CrawledChapterDto dto = new CrawledChapterDto();
@@ -258,11 +284,12 @@ public class LacaTruyenCrawler implements NovelSourceCrawler {
                     }
                     currentSlug = nextSlug;
                     
-                    // Small delay to prevent rate limiting
                     Thread.sleep(50);
                 }
             } finally {
-                driver.quit();
+                if (driver != null) {
+                    driver.quit();
+                }
             }
             
         } catch (Exception e) {
@@ -302,6 +329,33 @@ public class LacaTruyenCrawler implements NovelSourceCrawler {
     @Override
     public CrawledChapterDto fetchChapterContent(String chapterUrl) {
         WebDriver driver = createHeadlessChrome();
+        if (driver == null) {
+            try {
+                Document chapDoc = Jsoup.connect(chapterUrl).userAgent(USER_AGENT).get();
+                JsonNode chapNextData = extractNextData(chapDoc);
+                String title = "Chapter";
+                String contentHtml = "";
+                if (chapNextData != null) {
+                    JsonNode pageProps = chapNextData.path("props").path("pageProps");
+                    contentHtml = pageProps.path("previewHtml").asText("");
+                    if (contentHtml.startsWith("<p>Chương")) {
+                        int endTitle = contentHtml.indexOf("</p>");
+                        if (endTitle > 0) {
+                            title = contentHtml.substring(3, endTitle);
+                        }
+                    }
+                }
+                return CrawledChapterDto.builder()
+                        .title(title)
+                        .content(cleanContent(contentHtml))
+                        .sourceUrl(chapterUrl)
+                        .build();
+            } catch (Exception e) {
+                log.error("Failed to fetch chapter content from {}: {}", chapterUrl, e.getMessage());
+                return null;
+            }
+        }
+        
         try {
             driver.get(chapterUrl);
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
@@ -332,25 +386,24 @@ public class LacaTruyenCrawler implements NovelSourceCrawler {
     }
 
     private WebDriver createHeadlessChrome() {
-        ChromeOptions options = new ChromeOptions();
-        options.addArguments("--headless=new");
-        options.addArguments("--no-sandbox");
-        options.addArguments("--disable-dev-shm-usage");
-        options.addArguments("--disable-gpu");
-        options.addArguments("--disable-extensions");
-        options.addArguments("--remote-allow-origins=*");
-        options.addArguments("--user-agent=" + USER_AGENT);
-        
         try {
             String seleniumUrl = System.getenv("SELENIUM_URL");
             if (seleniumUrl != null && !seleniumUrl.isEmpty()) {
+                ChromeOptions options = new ChromeOptions();
+                options.addArguments("--headless=new");
+                options.addArguments("--no-sandbox");
+                options.addArguments("--disable-dev-shm-usage");
+                options.addArguments("--disable-gpu");
+                options.addArguments("--disable-extensions");
+                options.addArguments("--remote-allow-origins=*");
+                options.addArguments("--user-agent=" + USER_AGENT);
+                
                 log.info("Connecting to remote Selenium at: {}", seleniumUrl);
                 return new RemoteWebDriver(new URL(seleniumUrl), options);
             }
         } catch (Exception e) {
             log.error("Failed to connect to remote Selenium: {}", e.getMessage());
-            throw new RuntimeException("Cannot create WebDriver: " + e.getMessage(), e);
         }
-        throw new RuntimeException("SELENIUM_URL environment variable is not set");
+        return null;
     }
 }
