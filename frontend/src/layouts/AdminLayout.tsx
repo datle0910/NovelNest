@@ -32,6 +32,17 @@ const AdminLayout: React.FC = () => {
         if (import.meta.env.VITE_WS_URL) {
           return import.meta.env.VITE_WS_URL;
         }
+        
+        if (import.meta.env.VITE_API_URL) {
+          try {
+            const url = new URL(import.meta.env.VITE_API_URL);
+            const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+            return `${protocol}//${url.host}`;
+          } catch (e) {
+            console.warn('Could not parse VITE_API_URL', e);
+          }
+        }
+
         if (typeof window !== 'undefined') {
           if (window.location.hostname === 'localhost' && window.location.port === '5173') {
             return 'ws://localhost:8080';
