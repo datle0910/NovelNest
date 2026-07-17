@@ -186,9 +186,9 @@ const ReadingPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Navigation */}
-      <div className={`max-w-3xl mx-auto px-4 pb-8 ${ct.text}`}>
-        <div className="flex justify-between items-center gap-4 pt-6 border-t ${ct.divider}">
+      {/* Navigation Desktop */}
+      <div className={`max-w-3xl mx-auto px-4 pb-20 ${ct.text}`}>
+        <div className="hidden lg:flex justify-between items-center gap-4 pt-6 border-t ${ct.divider}">
           <button onClick={handlePrev} disabled={!chapter.previousChapterNumber}
             className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm border transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shadow-sm ${ct.navBg}`}>
             <ChevronLeft className="w-5 h-5" /> Chương Trước
@@ -206,7 +206,7 @@ const ReadingPage: React.FC = () => {
       </div>
 
       {/* Comments */}
-      <div className={`border-t ${ct.divider}`}>
+      <div className={`border-t ${ct.divider} pb-24`}>
         <div className="max-w-3xl mx-auto px-4 py-8">
           <CommentList storyId={chapter.storyId} />
         </div>
@@ -237,9 +237,9 @@ const ReadingPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Bottom Navigation Bar (Mobile) */}
-      <div className={`lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t shadow-2xl transition-transform duration-300 ${isScrollingDown ? 'translate-y-full' : 'translate-y-0'} ${ct.navBg}`}>
-        <div className="flex items-center justify-around p-3 pb-safe">
+      {/* Bottom Navigation Bar (Mobile) - Luôn ghim cố định */}
+      <div className={`lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t shadow-[0_-4px_20px_rgba(0,0,0,0.1)] ${ct.navBg}`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div className="flex items-center justify-around px-3 py-2">
           <button onClick={handlePrev} disabled={!chapter.previousChapterNumber} className="p-2.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors disabled:opacity-30 flex flex-col items-center gap-1">
             <ChevronLeft className="w-5 h-5" />
             <span className="text-[10px] font-bold">Trước</span>
