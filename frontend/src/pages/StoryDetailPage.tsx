@@ -145,23 +145,23 @@ const StoryDetailPage: React.FC = () => {
               </div>
 
               {/* Actions */}
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 {firstChapter ? (
                   <Link
                     to={`/stories/${story.slug}/chapters/${firstChapter.chapterNumber}`}
-                    className="bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 text-white px-6 py-3 rounded-xl font-bold text-sm transition-all shadow-sm hover:shadow-md flex items-center gap-2"
+                    className="w-full sm:w-auto justify-center bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 text-white px-6 py-3 rounded-xl font-bold text-sm transition-all shadow-sm hover:shadow-md flex items-center gap-2"
                   >
                     <PlayCircle className="w-5 h-5" /> Đọc Ngay
                   </Link>
                 ) : (
-                  <button disabled className="bg-slate-100 text-slate-400 border border-slate-200 px-6 py-3 rounded-xl font-bold text-sm cursor-not-allowed">
+                  <button disabled className="w-full sm:w-auto justify-center bg-slate-100 text-slate-400 border border-slate-200 px-6 py-3 rounded-xl font-bold text-sm cursor-not-allowed">
                     Chưa có chương
                   </button>
                 )}
                 {history && (
                   <Link
                     to={`/stories/${story.slug}/chapters/${history.chapterNumber}`}
-                    className="bg-white border border-slate-200 hover:border-brand-200 hover:text-brand-600 text-slate-700 px-6 py-3 rounded-xl font-bold text-sm transition-all shadow-sm flex items-center gap-2"
+                    className="w-full sm:w-auto justify-center bg-white border border-slate-200 hover:border-brand-200 hover:text-brand-600 text-slate-700 px-6 py-3 rounded-xl font-bold text-sm transition-all shadow-sm flex items-center gap-2"
                   >
                     <BookOpen className="w-5 h-5" /> Đọc Tiếp Chương {history.chapterNumber}
                   </Link>

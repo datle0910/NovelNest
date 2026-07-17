@@ -200,14 +200,6 @@ const ReadingPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Back to top (Mobile) */}
-      {showBackToTop && (
-        <button onClick={scrollToTop}
-          className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-brand-500 text-white shadow-lg hover:bg-brand-600 transition-all flex items-center justify-center z-50 cursor-pointer animate-fade-in lg:hidden">
-          <ArrowUp className="w-5 h-5" />
-        </button>
-      )}
-
       {/* Floating Sidebar (Desktop) */}
       <div className={`hidden lg:flex flex-col items-center gap-2 fixed top-1/2 -translate-y-1/2 right-8 p-3 rounded-[32px] shadow-xl border transition-all z-50 ${ct.navBg}`}>
         <button onClick={handlePrev} disabled={!chapter.previousChapterNumber} className="p-2.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors disabled:opacity-30">
@@ -231,6 +223,32 @@ const ReadingPage: React.FC = () => {
         <button onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })} className="p-2.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors" title="Cuộn xuống cuối">
           <ArrowDown className="w-4 h-4" strokeWidth={2.5} />
         </button>
+      </div>
+
+      {/* Bottom Navigation Bar (Mobile) */}
+      <div className={`lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t shadow-2xl transition-transform duration-300 ${showBackToTop ? 'translate-y-full' : 'translate-y-0'} ${ct.navBg}`}>
+        <div className="flex items-center justify-around p-3 pb-safe">
+          <button onClick={handlePrev} disabled={!chapter.previousChapterNumber} className="p-2.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors disabled:opacity-30 flex flex-col items-center gap-1">
+            <ChevronLeft className="w-5 h-5" />
+            <span className="text-[10px] font-bold">Trước</span>
+          </button>
+          <button onClick={() => setIsDrawerOpen(true)} className="p-2.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors flex flex-col items-center gap-1">
+            <List className="w-5 h-5" />
+            <span className="text-[10px] font-bold">Mục lục</span>
+          </button>
+          <button onClick={() => setIsSettingsOpen(true)} className="p-2.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors flex flex-col items-center gap-1">
+            <Settings className="w-5 h-5" />
+            <span className="text-[10px] font-bold">Cài đặt</span>
+          </button>
+          <button onClick={() => setIsAudioOpen(true)} className="p-2.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors text-brand-500 flex flex-col items-center gap-1">
+            <Headphones className="w-5 h-5" />
+            <span className="text-[10px] font-bold">Audio</span>
+          </button>
+          <button onClick={handleNext} disabled={!chapter.nextChapterNumber} className="p-2.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors disabled:opacity-30 flex flex-col items-center gap-1">
+            <ChevronRight className="w-5 h-5" />
+            <span className="text-[10px] font-bold">Sau</span>
+          </button>
+        </div>
       </div>
 
       <ChapterDrawer 
