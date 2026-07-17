@@ -176,15 +176,22 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
       window.speechSynthesis.resume();
       setIsPaused(false);
     } else {
-      isCancelingRef.current = true;
-      window.speechSynthesis.cancel(); // Clear any stale queue
-      setTimeout(() => {
-        isCancelingRef.current = false;
-        queueChunk(currentIndexRef.current);
-      }, 50);
-      
       setIsPlaying(true);
       setIsPaused(false);
+      
+      // If nothing is currently speaking, we MUST call queueChunk synchronously
+      // without setTimeout to bypass iOS/Android click-to-play restrictions.
+      if (!window.speechSynthesis.speaking) {
+        isCancelingRef.current = false;
+        queueChunk(currentIndexRef.current);
+      } else {
+        isCancelingRef.current = true;
+        window.speechSynthesis.cancel(); // Clear any stale queue
+        setTimeout(() => {
+          isCancelingRef.current = false;
+          queueChunk(currentIndexRef.current);
+        }, 50);
+      }
     }
   }, [isPaused, queueChunk]);
 
