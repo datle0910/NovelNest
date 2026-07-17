@@ -134,9 +134,9 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
     let currentChunk = '';
     
     for (const phrase of phrases) {
-      // Group phrases into ~150 character chunks to avoid Chrome's 15-second speech bug
-      // and to respect Google Translate TTS 200 character limit.
-      if (currentChunk.length + phrase.length > 150 && currentChunk.length > 0) {
+      // Group phrases into ~100 character chunks to avoid Chrome's 15-second speech bug
+      // and to respect Google Translate TTS character limits (tw-ob can be strict).
+      if (currentChunk.length + phrase.length > 100 && currentChunk.length > 0) {
         mergedChunks.push(currentChunk.trim());
         currentChunk = '';
       }
@@ -174,8 +174,8 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
     const currentRate = overrideRate !== undefined ? overrideRate : rate;
 
     if (targetVoiceURI === 'cloud-vi') {
-      // Cloud TTS via Google Translate API
-      const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=vi&q=${encodeURIComponent(text)}`;
+      // Cloud TTS via Google Translate API (gtx client is more reliable)
+      const url = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=vi&q=${encodeURIComponent(text)}`;
       const audio = new Audio(url);
       audio.playbackRate = currentRate;
       
