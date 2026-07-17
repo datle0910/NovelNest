@@ -165,10 +165,20 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
       // Ignore 'interrupted' errors because we trigger them intentionally with cancel()
       if (e.error !== 'interrupted' && e.error !== 'canceled') {
         console.warn("SpeechSynthesis error:", e);
+        // If the browser blocks it, show an alert to the user
+        if (e.error === 'not-allowed' || e.error === 'audio-hardware' || e.error === 'synthesis-failed') {
+          alert(`Lỗi trình duyệt: ${e.error}. Vui lòng kiểm tra cài đặt trình duyệt (Brave Shields) hoặc cấp quyền phát âm thanh.`);
+          setIsPlaying(false);
+        }
       }
     };
 
-    window.speechSynthesis.speak(utterance);
+    try {
+      window.speechSynthesis.speak(utterance);
+    } catch (err) {
+      console.error("SpeechSynthesis speak exception:", err);
+      alert("Trình duyệt của bạn không hỗ trợ hoặc đang chặn tính năng đọc Audio.");
+    }
   }, [voices, selectedVoiceURI, options, rate]);
 
   const play = useCallback(() => {
