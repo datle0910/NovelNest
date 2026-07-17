@@ -15,6 +15,7 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
   const chunksRef = useRef<string[]>([]);
   const currentIndexRef = useRef(0);
   const isCancelingRef = useRef(false);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   // Initialize and get voices
   useEffect(() => {
@@ -62,25 +63,32 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
     tempDiv.innerHTML = structuredHtml;
     const plainText = tempDiv.textContent || tempDiv.innerText || '';
 
-    // Split by newlines or sentence endings (., !, ?)
-    const rawChunks = plainText.split(/(?<=[.!?\n])\s+/);
-    
+    // Split strictly by paragraphs (newlines) to ensure pauses sound natural
+    const paragraphs = plainText.split(/\n+/);
     const mergedChunks: string[] = [];
-    let currentChunk = '';
     
-    // Group into ~500 character chunks to minimize SpeechSynthesis queue overhead
-    for (const sentence of rawChunks) {
-      const trimmed = sentence.trim();
+    for (const para of paragraphs) {
+      const trimmed = para.trim();
       if (!trimmed) continue;
       
-      if ((currentChunk + ' ' + trimmed).length < 500) {
-        currentChunk += (currentChunk ? ' ' : '') + trimmed;
+      // If a paragraph is reasonably sized, keep it as one chunk
+      if (trimmed.length <= 800) {
+        mergedChunks.push(trimmed);
       } else {
-        if (currentChunk) mergedChunks.push(currentChunk);
-        currentChunk = trimmed;
+        // Only split by sentences if the paragraph is too long (prevent 15s bug)
+        const sentences = trimmed.split(/(?<=[.!?])\s+/);
+        let currentChunk = '';
+        for (const sentence of sentences) {
+          if ((currentChunk + ' ' + sentence).length <= 800) {
+            currentChunk += (currentChunk ? ' ' : '') + sentence;
+          } else {
+            if (currentChunk) mergedChunks.push(currentChunk.trim());
+            currentChunk = sentence;
+          }
+        }
+        if (currentChunk) mergedChunks.push(currentChunk.trim());
       }
     }
-    if (currentChunk) mergedChunks.push(currentChunk);
     
     chunksRef.current = mergedChunks;
       
@@ -98,16 +106,20 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
     }
   }, [htmlContent]);
 
-  const queueChunk = useCallback((index: number, overrideVoiceURI?: string) => {
+  const queueChunk = useCallback((index: number, overrideVoiceURI?: string, overrideRate?: number) => {
     if (index >= chunksRef.current.length) {
       return;
     }
 
     const text = chunksRef.current[index];
     const utterance = new SpeechSynthesisUtterance(text);
+    utteranceRef.current = utterance; // Prevent garbage collection
     
     const targetVoiceURI = overrideVoiceURI || selectedVoiceURI;
-    const voice = voices.find(v => v.voiceURI === targetVoiceURI);
+    // VERY IMPORTANT: Always fetch fresh voices from the browser instead of using React state
+    // because SpeechSynthesisVoice objects can become stale and be silently ignored by the browser.
+    const freshVoices = window.speechSynthesis.getVoices();
+    const voice = freshVoices.find(v => v.voiceURI === targetVoiceURI);
     if (voice) {
       utterance.voice = voice;
       utterance.lang = voice.lang;
@@ -116,7 +128,7 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
     }
 
     // Adjust rate and pitch
-    utterance.rate = rate;
+    utterance.rate = overrideRate !== undefined ? overrideRate : rate;
     utterance.pitch = 1.0;
 
     utterance.onstart = () => {
@@ -125,7 +137,7 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
       
       // Queue the next chunk immediately so there is no gap in audio playback
       if (index + 1 < chunksRef.current.length && !isCancelingRef.current) {
-        queueChunk(index + 1, overrideVoiceURI);
+        queueChunk(index + 1, overrideVoiceURI, overrideRate);
       }
     };
 
@@ -142,7 +154,10 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
     };
 
     utterance.onerror = (e) => {
-      console.warn("SpeechSynthesis error:", e);
+      // Ignore 'interrupted' errors because we trigger them intentionally with cancel()
+      if (e.error !== 'interrupted' && e.error !== 'canceled') {
+        console.warn("SpeechSynthesis error:", e);
+      }
     };
 
     window.speechSynthesis.speak(utterance);
@@ -154,13 +169,14 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
       setIsPaused(false);
     } else {
       isCancelingRef.current = true;
-      window.speechSynthesis.cancel(); // Clear queue
+      window.speechSynthesis.cancel(); // Clear any stale queue
       setTimeout(() => {
         isCancelingRef.current = false;
         queueChunk(currentIndexRef.current);
-        setIsPlaying(true);
-        setIsPaused(false);
       }, 50);
+      
+      setIsPlaying(true);
+      setIsPaused(false);
     }
   }, [isPaused, queueChunk]);
 
@@ -215,7 +231,7 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
       window.speechSynthesis.cancel();
       setTimeout(() => {
         isCancelingRef.current = false;
-        queueChunk(currentIndexRef.current);
+        queueChunk(currentIndexRef.current, undefined, newRate);
       }, 50);
     }
   }, [isPlaying, isPaused, queueChunk]);
