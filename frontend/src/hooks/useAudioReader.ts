@@ -54,40 +54,48 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
     
     // Convert HTML to plain text blocks
     const tempDiv = document.createElement('div');
-    // Replace <br> and <p> with newlines to preserve structure before stripping
+    // Replace <br> and <p> with punctuation to create natural pauses instead of abrupt cuts
     const structuredHtml = htmlContent
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/p>/gi, '\n\n')
-      .replace(/<p>/gi, '');
+      .replace(/<br\s*\/?>/gi, ', ')
+      .replace(/<\/p>/gi, '. ')
+      .replace(/<p>/gi, ' ');
       
     tempDiv.innerHTML = structuredHtml;
     const plainText = tempDiv.textContent || tempDiv.innerText || '';
 
-    // Split strictly by paragraphs (newlines) to ensure pauses sound natural
-    const paragraphs = plainText.split(/\n+/);
-    const mergedChunks: string[] = [];
+    // Split text into phrases strictly at punctuation marks (comma, period, etc.) followed by space
+    // This cross-browser regex captures the punctuation and spaces so we can reconstruct phrases
+    const parts = plainText.split(/([.,!?;:\n]+(?:\s+|$))/);
+    const phrases: string[] = [];
+    let currentPhrase = '';
     
-    for (const para of paragraphs) {
-      const trimmed = para.trim();
-      if (!trimmed) continue;
-      
-      // If a paragraph is reasonably sized, keep it as one chunk
-      if (trimmed.length <= 800) {
-        mergedChunks.push(trimmed);
-      } else {
-        // Only split by sentences if the paragraph is too long (prevent 15s bug)
-        const sentences = trimmed.split(/(?<=[.!?])\s+/);
-        let currentChunk = '';
-        for (const sentence of sentences) {
-          if ((currentChunk + ' ' + sentence).length <= 800) {
-            currentChunk += (currentChunk ? ' ' : '') + sentence;
-          } else {
-            if (currentChunk) mergedChunks.push(currentChunk.trim());
-            currentChunk = sentence;
-          }
+    for (let i = 0; i < parts.length; i++) {
+      currentPhrase += parts[i];
+      // Every odd index is the captured punctuation delimiter
+      if (i % 2 !== 0 || i === parts.length - 1) {
+        if (currentPhrase.trim()) {
+          phrases.push(currentPhrase.trim());
         }
-        if (currentChunk) mergedChunks.push(currentChunk.trim());
+        currentPhrase = '';
       }
+    }
+
+    const mergedChunks: string[] = [];
+    let currentChunk = '';
+    
+    for (const phrase of phrases) {
+      // Group phrases into ~300 character chunks to avoid Chrome's 15-second speech bug.
+      // By ONLY splitting chunks at phrase boundaries (punctuation), the browser's 
+      // internal delay between chunks perfectly masks as a natural comma/period pause!
+      if (currentChunk.length + phrase.length > 300 && currentChunk.length > 0) {
+        mergedChunks.push(currentChunk.trim());
+        currentChunk = '';
+      }
+      currentChunk += (currentChunk ? ' ' : '') + phrase;
+    }
+    
+    if (currentChunk.trim()) {
+      mergedChunks.push(currentChunk.trim());
     }
     
     chunksRef.current = mergedChunks;
