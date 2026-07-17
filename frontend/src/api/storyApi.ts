@@ -46,3 +46,19 @@ export const getTopViewsMonthly = (size = 6): Promise<ApiResponse<PageResponse<S
 export const getAllStories = (page = 0, size = 18, sort = 'updatedAt,desc'): Promise<ApiResponse<PageResponse<StorySummary>>> => {
   return axiosClient.get(`/api/stories?page=${page}&size=${size}&sort=${sort}`);
 };
+
+export interface AdvancedSearchRequest {
+  keyword?: string;
+  includeCategoryIds?: number[];
+  excludeCategoryIds?: number[];
+  status?: string;
+}
+
+export const advancedSearchStories = (
+  request: AdvancedSearchRequest,
+  page = 0,
+  size = 18,
+  sort = 'updatedAt,desc'
+): Promise<ApiResponse<PageResponse<StorySummary>>> => {
+  return axiosClient.post(`/api/stories/advanced-search?page=${page}&size=${size}&sort=${sort}`, request);
+};

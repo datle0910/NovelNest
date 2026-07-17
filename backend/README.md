@@ -1,49 +1,58 @@
 # NovelNest - Nền tảng Đọc Truyện Trực Tuyến 📖
 
-NovelNest là một nền tảng đọc truyện chữ trực tuyến mạnh mẽ, được thiết kế theo kiến trúc **Microservices**, cho phép mở rộng dễ dàng và hiệu suất cao. Dự án cung cấp cả giao diện người dùng để đọc truyện và giao diện quản trị viên (Admin Dashboard) để quản lý nội dung.
+NovelNest là nền tảng đọc truyện chữ trực tuyến, được xây dựng với kiến trúc **Monolith** (Spring Boot đơn), giúp đơn giản hóa triển khai và phát triển cục bộ.
 
-## 🌟 Chức năng nổi bật (Hoàn thành 100%)
+## 🌟 Chức năng nổi bật
 
 ### Dành cho Người Dùng (User)
 - **Bảo mật**: Đăng ký, Đăng nhập, JWT, Refresh Token tự động, Quên mật khẩu qua OTP.
 - **Khám phá**: Xem danh sách truyện, Phân trang, Tìm kiếm, Lọc truyện theo Thể loại.
-- **Tương tác**: Đánh giá truyện (1-5 sao), Viết bình luận (trên truyện & chương), Thêm truyện vào Danh sách Yêu thích.
-- **Trải nghiệm Đọc**: Theo dõi tự động Lịch sử đọc, Nút "Tiếp tục đọc", Chuyển chương tiện lợi.
-- **Cá nhân hóa**: Cập nhật Hồ sơ cá nhân, Tải lên Ảnh Đại diện (Avatar), Đổi Mật khẩu an toàn.
+- **Tương tác**: Đánh giá truyện (1-5 sao), Viết bình luận, Thêm truyện vào Yêu thích.
+- **Trải nghiệm Đọc**: Theo dõi Lịch sử đọc, Nút "Tiếp tục đọc", Chuyển chương tiện lợi.
+- **Cá nhân hóa**: Cập nhật Hồ sơ cá nhân, Tải lên Avatar, Đổi Mật khẩu.
 
 ### Dành cho Quản trị viên (Admin)
 - **Dashboard**: Giao diện Quản trị riêng biệt (chỉ truy cập bằng tài khoản `ADMIN`).
 - **Quản lý Nội dung**: Thêm/Sửa/Xóa Tác giả, Thể loại, Truyện, và Chương.
-- **Đa phương tiện**: Tải lên và quản lý Ảnh bìa truyện qua `media-service`.
+- **Đa phương tiện**: Upload ảnh bìa truyện và avatar.
 
 ## 🏗 Kiến trúc Hệ thống
 
-Dự án sử dụng kiến trúc Microservices với các thành phần:
+Dự án sử dụng kiến trúc **Monolith** với một Spring Boot application duy nhất:
 
-1. **discovery-server (Port 8761)**: Eureka Registry.
-2. **api-gateway (Port 8080)**: Cổng giao tiếp API tập trung, xử lý CORS.
-3. **auth-service (Port 8081)**: Xác thực, quản lý người dùng, JWT.
-4. **story-service (Port 8082)**: Quản lý truyện, thể loại, tương tác (bình luận, đánh giá, lịch sử đọc).
-5. **media-service (Port 8083)**: Tải lên và lưu trữ ảnh (Ảnh bìa, Avatar).
-6. **Frontend (Port 5173)**: React SPA.
-7. **Database (Port 3306)**: MySQL Docker.
+```
+novelnest-backend (Port 8080)
+├── auth/         - Xác thực, JWT, quản lý user
+├── story/        - Quản lý truyện
+├── chapter/      - Quản lý chương
+├── comment/      - Bình luận
+├── rating/       - Đánh giá
+├── favorite/     - Yêu thích
+├── history/      - Lịch sử đọc
+├── media/        - Upload ảnh
+├── author/       - Quản lý tác giả
+├── category/     - Thể loại
+├── security/     - JWT Filter, Security utils
+└── websocket/    - WebSocket cho Admin reports
+```
 
 ## 🚀 Công nghệ Sử dụng
 
-- **Backend**: Java 21, Spring Boot 3.3, Spring Cloud, Spring Security, JWT, Hibernate JPA.
+- **Backend**: Java 21, Spring Boot 3.3, Spring Security, JWT, Hibernate JPA.
 - **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Zustand, Axios, React Router v6.
-- **Database**: MySQL.
+- **Database**: MySQL (một database duy nhất: `novelnest_db`).
 
 ## 📂 Cấu trúc Thư mục
 
 ```text
 NovelNest/
 ├── backend/
-│   ├── discovery-server/
-│   ├── api-gateway/
-│   ├── auth-service/
-│   ├── story-service/
-│   └── media-service/
+│   ├── novelnest-backend/   # ← Monolith chính (dùng cái này)
+│   ├── auth-service/        # (Legacy - không dùng nữa)
+│   ├── story-service/       # (Legacy - không dùng nữa)
+│   ├── media-service/       # (Legacy - không dùng nữa)
+│   ├── discovery-server/    # (Legacy - không dùng nữa)
+│   └── api-gateway/         # (Legacy - không dùng nữa)
 ├── frontend/
 ├── docker-compose.yml
 └── README.md
@@ -51,51 +60,51 @@ NovelNest/
 
 ## 🛠 Hướng dẫn Cài đặt & Chạy Dự án
 
-### 1. Khởi chạy Database
-Yêu cầu: Docker
+### 1. Khởi chạy Database (Docker)
+
 ```bash
-docker compose up -d
+cd backend
+docker compose up mysql -d
 ```
-Docker sẽ chạy MySQL ở cổng `3306`. Dữ liệu sẽ tự động được Spring Boot migrate khi khởi động.
 
-### 2. Khởi chạy Backend Services
-Di chuyển vào từng thư mục và chạy lệnh Maven (cần cài đặt Java 21 & Maven). **Bắt buộc chạy theo đúng thứ tự:**
+Docker sẽ chạy MySQL ở cổng `3306` và tự tạo database `novelnest_db`.
 
-1. **Discovery Server**: `cd backend/discovery-server` -> `mvn spring-boot:run`
-2. **API Gateway**: `cd backend/api-gateway` -> `mvn spring-boot:run`
-3. **Auth Service**: `cd backend/auth-service` -> `mvn spring-boot:run`
-4. **Story Service**: `cd backend/story-service` -> `mvn spring-boot:run`
-5. **Media Service**: `cd backend/media-service` -> `mvn spring-boot:run`
+### 2. Khởi chạy Backend (Monolith)
 
-*Truy cập [http://localhost:8761](http://localhost:8761) để kiểm tra tất cả các services đã đăng ký thành công lên Eureka.*
+```bash
+cd backend/novelnest-backend
+mvn spring-boot:run
+```
+
+Backend sẽ chạy tại `http://localhost:8080`. Spring Boot sẽ tự động tạo/update schema.
 
 ### 3. Khởi chạy Frontend
-Yêu cầu: Node.js (v18+)
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
+
 Giao diện ứng dụng sẽ chạy tại: [http://localhost:5173](http://localhost:5173)
 
 ## 🔑 Tài khoản Mặc định
 
-Hệ thống tự động tạo một tài khoản Admin khi chạy lần đầu:
+Hệ thống tự động tạo tài khoản Admin khi chạy lần đầu:
 - **Email**: `admin@novelnest.com`
 - **Mật khẩu**: `admin123`
 
 ## 🧪 Cách Test Nhanh
-1. Truy cập `http://localhost:5173`, đăng nhập bằng tài khoản Admin ở trên.
+1. Truy cập `http://localhost:5173`, đăng nhập bằng tài khoản Admin.
 2. Truy cập tab `Admin` trên Header.
-3. Tạo Thể loại -> Tạo Tác giả -> Tạo Truyện (Tải ảnh bìa) -> Tạo Chương.
+3. Tạo Thể loại → Tạo Tác giả → Tạo Truyện (Tải ảnh bìa) → Tạo Chương.
 4. Đăng xuất. Tạo tài khoản User mới.
-5. Đăng nhập User mới -> Tìm kiếm truyện vừa tạo -> Đọc truyện -> Thêm vào Yêu thích -> Viết bình luận.
-6. Chuyển sang trang Hồ sơ cá nhân -> Cập nhật Avatar.
+5. Đăng nhập User → Tìm kiếm truyện → Đọc → Yêu thích → Bình luận.
 
 ## ⚠️ Lỗi thường gặp & Cách xử lý
-- **Lỗi 401 khi gọi API**: JWT Token hết hạn. Hệ thống Frontend đã tự động có interceptors gọi refresh-token. Nếu vẫn bị 401, hãy thử Đăng xuất và đăng nhập lại.
-- **Lỗi CORS**: Hãy chắc chắn `api-gateway` đang chạy ở `localhost:8080`. Frontend KHÔNG ĐƯỢC gọi trực tiếp cổng `8081` hay `8082`.
-- **Dịch vụ không hiển thị trên Eureka**: Kiểm tra xem `discovery-server` có được chạy ĐẦU TIÊN hay không.
+- **Lỗi 401 khi gọi API**: JWT Token hết hạn. Frontend tự động gọi refresh-token. Nếu vẫn lỗi, hãy đăng xuất và đăng nhập lại.
+- **Lỗi CORS**: Đảm bảo backend đang chạy tại `localhost:8080`. Frontend **KHÔNG ĐƯỢC** gọi trực tiếp port khác.
+- **Database connection failed**: Đảm bảo MySQL đang chạy và database `novelnest_db` tồn tại.
 
 ---
-**Tác giả**: NovelNest Team | **Phiên bản**: 1.0 (Bản Demo Tốt nghiệp)
+**Tác giả**: NovelNest Team | **Phiên bản**: 2.0 (Monolith Architecture)

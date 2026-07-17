@@ -1,0 +1,15 @@
+package com.example.novelnest.crawler.dto;
+
+import lombok.*;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class CrawledChapterDto {
+    private String title;
+    private Integer chapterNumber;
+    private String content;
+    private String sourceUrl;
+}

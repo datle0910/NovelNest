@@ -75,6 +75,19 @@ public class StoryService {
         return buildPageResponse(page);
     }
 
+    public PageResponse<StoryResponse> advancedSearch(
+            com.example.storyservice.story.dto.AdvancedSearchRequest request,
+            Pageable pageable) {
+        org.springframework.data.jpa.domain.Specification<Story> spec = StorySpecification.advancedFilter(
+                request.getKeyword(),
+                request.getIncludeCategoryIds(),
+                request.getExcludeCategoryIds(),
+                request.getStatus()
+        );
+        Page<Story> page = storyRepository.findAll(spec, pageable);
+        return buildPageResponse(page);
+    }
+
     @Transactional
     public StoryDetailResponse getStoryBySlug(String slug, boolean includeHidden) {
         Story story = includeHidden ? 

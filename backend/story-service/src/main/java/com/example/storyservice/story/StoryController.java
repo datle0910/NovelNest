@@ -42,6 +42,21 @@ public class StoryController {
         return ResponseEntity.ok(ApiResponse.success("Search stories successfully", storyService.searchStories(keyword, pageable, false)));
     }
 
+    @PostMapping("/advanced-search")
+    public ResponseEntity<ApiResponse<PageResponse<StoryResponse>>> advancedSearch(
+            @RequestBody com.example.storyservice.story.dto.AdvancedSearchRequest request,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "18") int size,
+            @RequestParam(defaultValue = "updatedAt,desc") String sort) {
+
+        String[] sortParams = sort.split(",");
+        String sortField = sortParams[0];
+        Sort.Direction sortDirection = sortParams.length > 1 && sortParams[1].equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sortField));
+        return ResponseEntity.ok(ApiResponse.success("Advanced search successfully", storyService.advancedSearch(request, pageable)));
+    }
+
     @GetMapping("/category/{categorySlug}")
     public ResponseEntity<ApiResponse<PageResponse<StoryResponse>>> getStoriesByCategory(
             @PathVariable String categorySlug,

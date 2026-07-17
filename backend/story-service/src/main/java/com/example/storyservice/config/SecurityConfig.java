@@ -54,6 +54,7 @@ public class SecurityConfig {
                     "/actuator/**"
                 };
                 auth.requestMatchers(HttpMethod.GET, publicEndpoints).permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/stories/advanced-search").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/chapters/*/reports").permitAll()
                 // Admin endpoints - require ADMIN role
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
