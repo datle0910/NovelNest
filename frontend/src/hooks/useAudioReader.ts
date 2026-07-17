@@ -16,9 +16,12 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
   const currentIndexRef = useRef(0);
   const isCancelingRef = useRef(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const cloudAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Initialize and get voices
   useEffect(() => {
+    let pollInterval: any;
+    
     const loadVoices = () => {
       let allVoices = window.speechSynthesis.getVoices();
       
@@ -30,6 +33,14 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
         availableVoices = allVoices;
       }
       
+      const cloudVoice = {
+        default: false,
+        lang: 'vi-VN',
+        localService: false,
+        name: 'Giọng đọc Đám mây (Google - Đề xuất)',
+        voiceURI: 'cloud-vi'
+      } as SpeechSynthesisVoice;
+
       if (availableVoices.length > 0) {
         // Sort Vietnamese voices to the top if any exist, otherwise just sort alphabetically
         availableVoices.sort((a, b) => {
@@ -40,16 +51,17 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
           return a.name.localeCompare(b.name);
         });
         
-        setVoices(availableVoices);
+        // Add Cloud Voice as the FIRST option
+        setVoices([cloudVoice, ...availableVoices]);
         
-        // Auto-select first voice
+        // Auto-select Cloud Voice because it's the most reliable on mobile
         if (!selectedVoiceURI) {
-          setSelectedVoiceURI(availableVoices[0].voiceURI);
+          setSelectedVoiceURI('cloud-vi');
         }
+        
+        if (pollInterval) clearInterval(pollInterval);
       } else {
-        // Fallback: If browser (like Brave) blocks getVoices() returning empty array,
-        // we provide a dummy default voice so the UI doesn't break, and the browser
-        // might still allow speak() using the OS default TTS.
+        // Fallback: If browser blocks getVoices() returning empty array
         const dummyVoice = {
           default: true,
           lang: 'vi-VN',
@@ -58,9 +70,9 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
           voiceURI: 'default-system-voice'
         } as SpeechSynthesisVoice;
         
-        setVoices([dummyVoice]);
+        setVoices([cloudVoice, dummyVoice]);
         if (!selectedVoiceURI) {
-          setSelectedVoiceURI('default-system-voice');
+          setSelectedVoiceURI('cloud-vi');
         }
       }
     };
@@ -68,10 +80,22 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
     loadVoices();
     // Chrome sometimes fires voiceschanged asynchronously
     window.speechSynthesis.onvoiceschanged = loadVoices;
+    
+    // Poll for voices in case onvoiceschanged never fires
+    pollInterval = setInterval(() => {
+      if (window.speechSynthesis.getVoices().length > 0) {
+        loadVoices();
+        clearInterval(pollInterval);
+      }
+    }, 1000);
 
     return () => {
+      if (pollInterval) clearInterval(pollInterval);
       window.speechSynthesis.onvoiceschanged = null;
       window.speechSynthesis.cancel(); // Stop speaking if unmounted
+      if (cloudAudioRef.current) {
+        cloudAudioRef.current.pause();
+      }
     };
   }, []);
 
@@ -91,7 +115,6 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
     const plainText = tempDiv.textContent || tempDiv.innerText || '';
 
     // Split text into phrases strictly at punctuation marks (comma, period, etc.) followed by space
-    // This cross-browser regex captures the punctuation and spaces so we can reconstruct phrases
     const parts = plainText.split(/([.,!?;:\n]+(?:\s+|$))/);
     const phrases: string[] = [];
     let currentPhrase = '';
@@ -111,10 +134,9 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
     let currentChunk = '';
     
     for (const phrase of phrases) {
-      // Group phrases into ~300 character chunks to avoid Chrome's 15-second speech bug.
-      // By ONLY splitting chunks at phrase boundaries (punctuation), the browser's 
-      // internal delay between chunks perfectly masks as a natural comma/period pause!
-      if (currentChunk.length + phrase.length > 300 && currentChunk.length > 0) {
+      // Group phrases into ~150 character chunks to avoid Chrome's 15-second speech bug
+      // and to respect Google Translate TTS 200 character limit.
+      if (currentChunk.length + phrase.length > 150 && currentChunk.length > 0) {
         mergedChunks.push(currentChunk.trim());
         currentChunk = '';
       }
@@ -134,6 +156,7 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
     if (isPlaying && !isPaused) {
       isCancelingRef.current = true;
       window.speechSynthesis.cancel();
+      if (cloudAudioRef.current) cloudAudioRef.current.pause();
       setTimeout(() => {
         isCancelingRef.current = false;
         queueChunk(0);
@@ -147,10 +170,56 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
     }
 
     const text = chunksRef.current[index];
+    const targetVoiceURI = overrideVoiceURI || selectedVoiceURI;
+    const currentRate = overrideRate !== undefined ? overrideRate : rate;
+
+    if (targetVoiceURI === 'cloud-vi') {
+      // Cloud TTS via Google Translate API
+      const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=vi&q=${encodeURIComponent(text)}`;
+      const audio = new Audio(url);
+      audio.playbackRate = currentRate;
+      
+      audio.onended = () => {
+        if (index === chunksRef.current.length - 1 && !isCancelingRef.current) {
+          setIsPlaying(false);
+          setIsPaused(false);
+          setProgress(100);
+          if (options?.onComplete) {
+            options.onComplete();
+          }
+        } else if (!isCancelingRef.current) {
+          queueChunk(index + 1, overrideVoiceURI, overrideRate);
+        }
+      };
+      
+      audio.onplay = () => {
+        currentIndexRef.current = index;
+        setProgress(Math.round((index / chunksRef.current.length) * 100));
+      };
+      
+      audio.onerror = (e) => {
+        console.error("Cloud TTS error", e);
+        if (!isCancelingRef.current && index + 1 < chunksRef.current.length) {
+           queueChunk(index + 1, overrideVoiceURI, overrideRate);
+        } else {
+           setIsPlaying(false);
+           setIsPaused(false);
+        }
+      };
+
+      cloudAudioRef.current = audio;
+      audio.play().catch(e => {
+        console.error("Cloud TTS play exception", e);
+        alert("Không thể phát Giọng đọc Đám mây. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.");
+        setIsPlaying(false);
+      });
+      return;
+    }
+
+    // Web Speech API logic
     const utterance = new SpeechSynthesisUtterance(text);
     utteranceRef.current = utterance; // Prevent garbage collection
     
-    const targetVoiceURI = overrideVoiceURI || selectedVoiceURI;
     // VERY IMPORTANT: Always fetch fresh voices from the browser instead of using React state
     // because SpeechSynthesisVoice objects can become stale and be silently ignored by the browser.
     const freshVoices = window.speechSynthesis.getVoices();
@@ -163,7 +232,7 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
     }
 
     // Adjust rate and pitch
-    utterance.rate = overrideRate !== undefined ? overrideRate : rate;
+    utterance.rate = currentRate;
     utterance.pitch = 1.0;
 
     utterance.onstart = () => {
@@ -206,16 +275,26 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
       console.error("SpeechSynthesis speak exception:", err);
       alert("Trình duyệt của bạn không hỗ trợ hoặc đang chặn tính năng đọc Audio.");
     }
-  }, [voices, selectedVoiceURI, options, rate]);
+  }, [selectedVoiceURI, options, rate]);
 
   const play = useCallback(() => {
     if (isPaused) {
-      window.speechSynthesis.resume();
+      if (selectedVoiceURI === 'cloud-vi' && cloudAudioRef.current) {
+         cloudAudioRef.current.play().catch(console.error);
+      } else {
+         window.speechSynthesis.resume();
+      }
       setIsPaused(false);
     } else {
       setIsPlaying(true);
       setIsPaused(false);
       
+      if (selectedVoiceURI === 'cloud-vi') {
+         isCancelingRef.current = false;
+         queueChunk(currentIndexRef.current);
+         return;
+      }
+
       // If nothing is currently speaking, we MUST call queueChunk synchronously
       // without setTimeout to bypass iOS/Android click-to-play restrictions.
       if (!window.speechSynthesis.speaking) {
@@ -230,34 +309,48 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
         }, 50);
       }
     }
-  }, [isPaused, queueChunk]);
+  }, [isPaused, queueChunk, selectedVoiceURI]);
 
   const pause = useCallback(() => {
-    window.speechSynthesis.pause();
+    if (selectedVoiceURI === 'cloud-vi' && cloudAudioRef.current) {
+        cloudAudioRef.current.pause();
+    } else {
+        window.speechSynthesis.pause();
+    }
     setIsPaused(true);
-  }, []);
+  }, [selectedVoiceURI]);
 
   const stop = useCallback(() => {
     isCancelingRef.current = true;
-    window.speechSynthesis.cancel();
-    setTimeout(() => isCancelingRef.current = false, 50);
+    if (selectedVoiceURI === 'cloud-vi' && cloudAudioRef.current) {
+        cloudAudioRef.current.pause();
+        cloudAudioRef.current.currentTime = 0;
+        setTimeout(() => isCancelingRef.current = false, 50);
+    } else {
+        window.speechSynthesis.cancel();
+        setTimeout(() => isCancelingRef.current = false, 50);
+    }
     setIsPlaying(false);
     setIsPaused(false);
     currentIndexRef.current = 0;
     setProgress(0);
-  }, []);
+  }, [selectedVoiceURI]);
 
   const selectVoice = useCallback((voiceURI: string) => {
     setSelectedVoiceURI(voiceURI);
     if (isPlaying) {
       isCancelingRef.current = true;
-      window.speechSynthesis.cancel();
+      if (selectedVoiceURI === 'cloud-vi' && cloudAudioRef.current) {
+          cloudAudioRef.current.pause();
+      } else {
+          window.speechSynthesis.cancel();
+      }
       setTimeout(() => {
         isCancelingRef.current = false;
         queueChunk(currentIndexRef.current, voiceURI);
       }, 50);
     }
-  }, [isPlaying, queueChunk]);
+  }, [isPlaying, queueChunk, selectedVoiceURI]);
 
   const seek = useCallback((percentage: number) => {
     const targetIndex = Math.floor(Math.max(0, Math.min(1, percentage)) * (chunksRef.current.length - 1));
@@ -267,26 +360,34 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
       
       if (isPlaying && !isPaused) {
         isCancelingRef.current = true;
-        window.speechSynthesis.cancel();
+        if (selectedVoiceURI === 'cloud-vi' && cloudAudioRef.current) {
+            cloudAudioRef.current.pause();
+        } else {
+            window.speechSynthesis.cancel();
+        }
         setTimeout(() => {
           isCancelingRef.current = false;
           queueChunk(targetIndex);
         }, 50);
       }
     }
-  }, [isPlaying, isPaused, queueChunk]);
+  }, [isPlaying, isPaused, queueChunk, selectedVoiceURI]);
 
   const changeRate = useCallback((newRate: number) => {
     setRate(newRate);
     if (isPlaying && !isPaused) {
       isCancelingRef.current = true;
-      window.speechSynthesis.cancel();
+      if (selectedVoiceURI === 'cloud-vi' && cloudAudioRef.current) {
+          cloudAudioRef.current.pause();
+      } else {
+          window.speechSynthesis.cancel();
+      }
       setTimeout(() => {
         isCancelingRef.current = false;
         queueChunk(currentIndexRef.current, undefined, newRate);
       }, 50);
     }
-  }, [isPlaying, isPaused, queueChunk]);
+  }, [isPlaying, isPaused, queueChunk, selectedVoiceURI]);
 
   return {
     voices,
