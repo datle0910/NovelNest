@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, List, ArrowUp, Type, Sparkles, BookOpen, Settings, Headphones, Info, ArrowDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, List, Type, Sparkles, BookOpen, Settings, Headphones, Info, ArrowDown } from 'lucide-react';
 import { getChapterDetail, reportChapter } from '../api/storyApi';
 import { ChapterDetail } from '../types/chapter';
 import Loading from '../components/Loading';
@@ -42,35 +42,9 @@ const ReadingPage: React.FC = () => {
     };
   });
 
-  const [showBackToTop, setShowBackToTop] = useState(false);
-  const [isScrollingDown, setIsScrollingDown] = useState(false);
-  const lastScrollY = useRef(0);
-
   useEffect(() => {
     localStorage.setItem('reader-settings', JSON.stringify(settings));
   }, [settings]);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      setShowBackToTop(currentScrollY > 400);
-      
-      if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
-        // Scrolling down
-        setIsScrollingDown(true);
-      } else if (currentScrollY < lastScrollY.current - 10) {
-        // Scrolling up (added a small threshold to avoid jitter)
-        setIsScrollingDown(false);
-      }
-      lastScrollY.current = currentScrollY;
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  const scrollToTop = useCallback(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
 
   useEffect(() => {
     const fetchChapter = async () => {

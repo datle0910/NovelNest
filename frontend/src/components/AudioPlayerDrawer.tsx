@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Play, Pause, Square, SkipBack, SkipForward, Clock, Settings, Volume2, Zap } from 'lucide-react';
+import { X, Play, Pause, Square, SkipBack, SkipForward, Clock, Settings, Volume2, Zap, Headphones } from 'lucide-react';
 import { useAudioReader } from '../hooks/useAudioReader';
 
 interface AudioPlayerDrawerProps {
