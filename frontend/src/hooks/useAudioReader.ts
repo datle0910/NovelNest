@@ -22,14 +22,27 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
     const loadVoices = () => {
       let allVoices = window.speechSynthesis.getVoices();
       
-      // Filter out non-Vietnamese voices
-      let availableVoices = allVoices.filter(v => v.lang.startsWith('vi'));
+      // Try to find Vietnamese voices first
+      let availableVoices = allVoices.filter(v => v.lang.toLowerCase().includes('vi'));
+      
+      // If no Vietnamese voice is found, fallback to all available voices
+      if (availableVoices.length === 0 && allVoices.length > 0) {
+        availableVoices = allVoices;
+      }
       
       if (availableVoices.length > 0) {
-        availableVoices.sort((a, b) => a.name.localeCompare(b.name));
+        // Sort Vietnamese voices to the top if any exist, otherwise just sort alphabetically
+        availableVoices.sort((a, b) => {
+          const aIsVi = a.lang.toLowerCase().includes('vi');
+          const bIsVi = b.lang.toLowerCase().includes('vi');
+          if (aIsVi && !bIsVi) return -1;
+          if (!aIsVi && bIsVi) return 1;
+          return a.name.localeCompare(b.name);
+        });
+        
         setVoices(availableVoices);
         
-        // Auto-select first Vietnamese voice
+        // Auto-select first voice
         if (!selectedVoiceURI) {
           setSelectedVoiceURI(availableVoices[0].voiceURI);
         }
