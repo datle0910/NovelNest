@@ -47,7 +47,21 @@ export const useAudioReader = (htmlContent: string, options?: AudioReaderOptions
           setSelectedVoiceURI(availableVoices[0].voiceURI);
         }
       } else {
-        setVoices([]);
+        // Fallback: If browser (like Brave) blocks getVoices() returning empty array,
+        // we provide a dummy default voice so the UI doesn't break, and the browser
+        // might still allow speak() using the OS default TTS.
+        const dummyVoice = {
+          default: true,
+          lang: 'vi-VN',
+          localService: true,
+          name: 'Giọng mặc định hệ thống (Android/iOS)',
+          voiceURI: 'default-system-voice'
+        } as SpeechSynthesisVoice;
+        
+        setVoices([dummyVoice]);
+        if (!selectedVoiceURI) {
+          setSelectedVoiceURI('default-system-voice');
+        }
       }
     };
 
