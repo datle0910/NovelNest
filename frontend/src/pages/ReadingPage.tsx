@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, List, ArrowUp, Type, Sparkles, BookOpen, Settings, Headphones, Info, ArrowDown } from 'lucide-react';
 import { getChapterDetail, reportChapter } from '../api/storyApi';
@@ -43,6 +43,8 @@ const ReadingPage: React.FC = () => {
   });
 
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [isScrollingDown, setIsScrollingDown] = useState(false);
+  const lastScrollY = useRef(0);
 
   useEffect(() => {
     localStorage.setItem('reader-settings', JSON.stringify(settings));
@@ -50,9 +52,19 @@ const ReadingPage: React.FC = () => {
 
   useEffect(() => {
     const handleScroll = () => {
-      setShowBackToTop(window.scrollY > 400);
+      const currentScrollY = window.scrollY;
+      setShowBackToTop(currentScrollY > 400);
+      
+      if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
+        // Scrolling down
+        setIsScrollingDown(true);
+      } else if (currentScrollY < lastScrollY.current - 10) {
+        // Scrolling up (added a small threshold to avoid jitter)
+        setIsScrollingDown(false);
+      }
+      lastScrollY.current = currentScrollY;
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -226,7 +238,7 @@ const ReadingPage: React.FC = () => {
       </div>
 
       {/* Bottom Navigation Bar (Mobile) */}
-      <div className={`lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t shadow-2xl transition-transform duration-300 ${showBackToTop ? 'translate-y-full' : 'translate-y-0'} ${ct.navBg}`}>
+      <div className={`lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t shadow-2xl transition-transform duration-300 ${isScrollingDown ? 'translate-y-full' : 'translate-y-0'} ${ct.navBg}`}>
         <div className="flex items-center justify-around p-3 pb-safe">
           <button onClick={handlePrev} disabled={!chapter.previousChapterNumber} className="p-2.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors disabled:opacity-30 flex flex-col items-center gap-1">
             <ChevronLeft className="w-5 h-5" />
@@ -268,6 +280,7 @@ const ReadingPage: React.FC = () => {
       <AudioPlayerDrawer
         isOpen={isAudioOpen}
         onClose={() => setIsAudioOpen(false)}
+        onOpen={() => setIsAudioOpen(true)}
         htmlContent={chapter.content}
         chapterTitle={getDisplayTitle()}
         handlePrev={handlePrev}

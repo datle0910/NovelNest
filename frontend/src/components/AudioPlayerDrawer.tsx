@@ -5,6 +5,7 @@ import { useAudioReader } from '../hooks/useAudioReader';
 interface AudioPlayerDrawerProps {
   isOpen: boolean;
   onClose: () => void;
+  onOpen: () => void;
   htmlContent: string;
   chapterTitle: string;
   handlePrev: () => void;
@@ -24,6 +25,7 @@ const TIMER_OPTIONS = [
 const AudioPlayerDrawer: React.FC<AudioPlayerDrawerProps> = ({
   isOpen,
   onClose,
+  onOpen,
   htmlContent,
   chapterTitle,
   handlePrev,
@@ -74,12 +76,37 @@ const AudioPlayerDrawer: React.FC<AudioPlayerDrawerProps> = ({
     };
   }, [sleepTimer, isPlaying, isPaused, stop]);
 
-  // Clean up audio when drawer closes completely
-  // Actually, we might want audio to keep playing even if drawer is closed.
-  // But if they navigate away from reading page, useAudioReader's cleanup handles it.
-
   return (
     <>
+      {/* Mini Player when closed but active */}
+      {!isOpen && (isPlaying || isPaused) && (
+        <div className="fixed bottom-20 left-4 right-4 sm:left-auto sm:right-4 sm:w-80 sm:bottom-4 bg-white shadow-2xl rounded-2xl p-3 border border-slate-100 flex items-center justify-between z-40 animate-fade-in cursor-pointer" onClick={onOpen}>
+          <div className="flex items-center gap-3 overflow-hidden flex-1">
+            <div className="w-10 h-10 bg-brand-50 rounded-full flex items-center justify-center shrink-0">
+              <Headphones className="w-5 h-5 text-brand-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-brand-500 font-bold mb-0.5">Đang phát Audio</p>
+              <p className="text-sm font-semibold text-slate-800 truncate">{chapterTitle}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 ml-2">
+            <button 
+              onClick={(e) => { e.stopPropagation(); isPlaying && !isPaused ? pause() : play(); }}
+              className="p-2.5 bg-brand-500 text-white rounded-full hover:bg-brand-600 transition-colors shadow-sm"
+            >
+              {isPlaying && !isPaused ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+            </button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); stop(); }}
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Backdrop */}
       {isOpen && (
         <div 
