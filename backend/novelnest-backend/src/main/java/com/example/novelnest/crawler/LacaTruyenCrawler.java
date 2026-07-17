@@ -243,10 +243,10 @@ public class LacaTruyenCrawler implements NovelSourceCrawler {
                         Document chapDoc = Jsoup.connect(chapUrl).userAgent(USER_AGENT).get();
                         JsonNode chapNextData = extractNextData(chapDoc);
                         if (chapNextData != null) {
-                            JsonNode pageProps = chapNextData.path("props").path("pageProps");
+                            JsonNode chapPageProps = chapNextData.path("props").path("pageProps");
                             
                             // Extract title from previewHtml if possible
-                            contentHtml = pageProps.path("previewHtml").asText("");
+                            contentHtml = chapPageProps.path("previewHtml").asText("");
                             if (contentHtml.startsWith("<p>Chương")) {
                                 int endTitle = contentHtml.indexOf("</p>");
                                 if (endTitle > 0) {
@@ -254,7 +254,7 @@ public class LacaTruyenCrawler implements NovelSourceCrawler {
                                 }
                             }
                             
-                            JsonNode right = pageProps.path("chapterRight");
+                            JsonNode right = chapPageProps.path("chapterRight");
                             if (!right.isMissingNode() && !right.isNull() && !right.path("slug").asText("").isEmpty()) {
                                 nextSlug = right.path("slug").asText("");
                             }
