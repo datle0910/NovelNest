@@ -101,82 +101,6 @@ export const useAudioReader = (htmlContent: string, chapterId: number, options?:
     };
   }, []);
 
-  const queueChunk = useCallback((index: number, overrideVoiceURI?: string, overrideRate?: number) => {
-    if (index >= chunksRef.current.length) {
-      return;
-    }
-
-    const text = chunksRef.current[index];
-    const targetVoiceURI = overrideVoiceURI || selectedVoiceURI;
-    const currentRate = overrideRate !== undefined ? overrideRate : rate;
-
-    if (targetVoiceURI === 'cloud-vi') {
-       // Cloud TTS now handled completely by cloudAudioRef, so queueChunk doesn't do anything here.
-       // The play() function will handle cloudAudioRef.current.play()
-       return;
-    }
-
-    // Web Speech API logic
-    const utterance = new SpeechSynthesisUtterance(text);
-    utteranceRef.current = utterance; // Prevent garbage collection
-    
-    // VERY IMPORTANT: Always fetch fresh voices from the browser instead of using React state
-    // because SpeechSynthesisVoice objects can become stale and be silently ignored by the browser.
-    const freshVoices = window.speechSynthesis.getVoices();
-    const voice = freshVoices.find(v => v.voiceURI === targetVoiceURI);
-    if (voice) {
-      utterance.voice = voice;
-      utterance.lang = voice.lang;
-    } else {
-      utterance.lang = 'vi-VN'; // Fallback
-    }
-
-    // Adjust rate and pitch
-    utterance.rate = currentRate;
-    utterance.pitch = 1.0;
-
-    utterance.onstart = () => {
-      currentIndexRef.current = index;
-      setProgress(Math.round((index / chunksRef.current.length) * 100));
-      
-      // Queue the next chunk immediately so there is no gap in audio playback
-      if (index + 1 < chunksRef.current.length && !isCancelingRef.current) {
-        queueChunk(index + 1, overrideVoiceURI, overrideRate);
-      }
-    };
-
-    utterance.onend = () => {
-      // If this is the last chunk, finish playback
-      if (index === chunksRef.current.length - 1 && !isCancelingRef.current) {
-        setIsPlaying(false);
-        setIsPaused(false);
-        setProgress(100);
-        if (options?.onComplete) {
-          options.onComplete();
-        }
-      }
-    };
-
-    utterance.onerror = (e) => {
-      // Ignore 'interrupted' errors because we trigger them intentionally with cancel()
-      if (e.error !== 'interrupted' && e.error !== 'canceled') {
-        console.warn("SpeechSynthesis error:", e);
-        // If the browser blocks it, show an alert to the user
-        if (e.error === 'not-allowed' || e.error === 'audio-hardware' || e.error === 'synthesis-failed') {
-          alert(`Lỗi trình duyệt: ${e.error}. Vui lòng kiểm tra cài đặt trình duyệt (Brave Shields) hoặc cấp quyền phát âm thanh.`);
-          setIsPlaying(false);
-        }
-      }
-    };
-
-    try {
-      window.speechSynthesis.speak(utterance);
-    } catch (err) {
-      console.error("SpeechSynthesis speak exception:", err);
-      alert("Trình duyệt của bạn không hỗ trợ hoặc đang chặn tính năng đọc Audio.");
-    }
-  }, [selectedVoiceURI, options, rate]);
-
   // Parse HTML content into text chunks when content changes
   useEffect(() => {
     if (!htmlContent) return;
@@ -289,7 +213,81 @@ export const useAudioReader = (htmlContent: string, chapterId: number, options?:
     }
   }, [chapterId]);
 
+  const queueChunk = useCallback((index: number, overrideVoiceURI?: string, overrideRate?: number) => {
+    if (index >= chunksRef.current.length) {
+      return;
+    }
 
+    const text = chunksRef.current[index];
+    const targetVoiceURI = overrideVoiceURI || selectedVoiceURI;
+    const currentRate = overrideRate !== undefined ? overrideRate : rate;
+
+    if (targetVoiceURI === 'cloud-vi') {
+       // Cloud TTS now handled completely by cloudAudioRef, so queueChunk doesn't do anything here.
+       // The play() function will handle cloudAudioRef.current.play()
+       return;
+    }
+
+    // Web Speech API logic
+    const utterance = new SpeechSynthesisUtterance(text);
+    utteranceRef.current = utterance; // Prevent garbage collection
+    
+    // VERY IMPORTANT: Always fetch fresh voices from the browser instead of using React state
+    // because SpeechSynthesisVoice objects can become stale and be silently ignored by the browser.
+    const freshVoices = window.speechSynthesis.getVoices();
+    const voice = freshVoices.find(v => v.voiceURI === targetVoiceURI);
+    if (voice) {
+      utterance.voice = voice;
+      utterance.lang = voice.lang;
+    } else {
+      utterance.lang = 'vi-VN'; // Fallback
+    }
+
+    // Adjust rate and pitch
+    utterance.rate = currentRate;
+    utterance.pitch = 1.0;
+
+    utterance.onstart = () => {
+      currentIndexRef.current = index;
+      setProgress(Math.round((index / chunksRef.current.length) * 100));
+      
+      // Queue the next chunk immediately so there is no gap in audio playback
+      if (index + 1 < chunksRef.current.length && !isCancelingRef.current) {
+        queueChunk(index + 1, overrideVoiceURI, overrideRate);
+      }
+    };
+
+    utterance.onend = () => {
+      // If this is the last chunk, finish playback
+      if (index === chunksRef.current.length - 1 && !isCancelingRef.current) {
+        setIsPlaying(false);
+        setIsPaused(false);
+        setProgress(100);
+        if (options?.onComplete) {
+          options.onComplete();
+        }
+      }
+    };
+
+    utterance.onerror = (e) => {
+      // Ignore 'interrupted' errors because we trigger them intentionally with cancel()
+      if (e.error !== 'interrupted' && e.error !== 'canceled') {
+        console.warn("SpeechSynthesis error:", e);
+        // If the browser blocks it, show an alert to the user
+        if (e.error === 'not-allowed' || e.error === 'audio-hardware' || e.error === 'synthesis-failed') {
+          alert(`Lỗi trình duyệt: ${e.error}. Vui lòng kiểm tra cài đặt trình duyệt (Brave Shields) hoặc cấp quyền phát âm thanh.`);
+          setIsPlaying(false);
+        }
+      }
+    };
+
+    try {
+      window.speechSynthesis.speak(utterance);
+    } catch (err) {
+      console.error("SpeechSynthesis speak exception:", err);
+      alert("Trình duyệt của bạn không hỗ trợ hoặc đang chặn tính năng đọc Audio.");
+    }
+  }, [selectedVoiceURI, options, rate]);
 
   const play = useCallback(() => {
     if (isPaused) {

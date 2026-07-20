@@ -61,6 +61,7 @@ public class SecurityConfig {
                     "/api/categories/**",
                     "/api/authors/**",
                     "/api/chapters/*/comments",
+                    "/api/chapters/*/audio",
                     "/api/stories/*/comments",
                     "/api/stories/*/ratings/summary"
                 };

@@ -257,6 +257,7 @@ const ReadingPage: React.FC = () => {
         onOpen={() => setIsAudioOpen(true)}
         htmlContent={chapter.content}
         chapterTitle={getDisplayTitle()}
+        chapterId={chapter.chapterId}
         handlePrev={handlePrev}
         handleNext={handleNext}
         hasPrev={!!chapter.previousChapterNumber}

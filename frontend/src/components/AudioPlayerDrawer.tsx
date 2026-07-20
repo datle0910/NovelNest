@@ -8,6 +8,7 @@ interface AudioPlayerDrawerProps {
   onOpen: () => void;
   htmlContent: string;
   chapterTitle: string;
+  chapterId: number;
   handlePrev: () => void;
   handleNext: () => void;
   hasPrev: boolean;
@@ -28,6 +29,7 @@ const AudioPlayerDrawer: React.FC<AudioPlayerDrawerProps> = ({
   onOpen,
   htmlContent,
   chapterTitle,
+  chapterId,
   handlePrev,
   handleNext,
   hasPrev,
@@ -50,7 +52,8 @@ const AudioPlayerDrawer: React.FC<AudioPlayerDrawerProps> = ({
     stop,
     selectVoice,
     seek
-  } = useAudioReader(htmlContent, {
+  } = useAudioReader(htmlContent, chapterId, {
+    chapterTitle,
     onComplete: () => {
       if (autoNext && hasNext) {
         handleNext();
